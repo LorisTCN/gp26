@@ -92,7 +92,7 @@
     <div id="winScreen" class="ui-layer hidden">
         <h1>COMPLIMENTI!</h1>
         <p style="font-size: 12px; margin: 20px 0; line-height: 1.8;">Ti sei qualificato per il GP che si terrà Sabato 25 Aprile ore 16.45.</p>
-        <a href="https://www.google.it/maps/place/Via+Giuseppe+Di+Vittorio,+20089+Rozzano+MI/" target="_blank" class="btn">dove?</a>
+        <a href="https://maps.app.goo.gl/87Es3qq8PkCTB2aW7" target="_blank" class="btn">dove?</a>
     </div>
 
     <script>
@@ -116,13 +116,17 @@
         // Variabili di Gioco
         let isPlaying = false;
         let speedMultiplier = 1;
-        let baseSpeed = 4;
+        let baseSpeed = 5; // Aumentata velocità di base
         let frameCount = 0;
         let obstacles = [];
         let roadLines = [];
         let invertedControls = false;
         let invertTimer = 0;
         let currentDifficulty = 'facile'; 
+        
+        // Variabili per il Traguardo
+        let isFinishing = false;
+        let finishLineY = -100;
         
         const car = { width: 40, height: 60, x: 0, y: 0, speed: 6, moveLeft: false, moveRight: false };
 
@@ -176,6 +180,8 @@
             frameCount = 0;
             invertedControls = false;
             invertTimer = 0;
+            isFinishing = false;
+            finishLineY = -100;
             warning.classList.add('hidden');
             
             isPlaying = true;
@@ -200,15 +206,17 @@
             if (!isPlaying) return;
 
             frameCount++;
-            if (frameCount > 2400) { 
-                winGame();
-                return;
+            
+            // Inizia la fase di traguardo dopo 2800 frame (circa 46 secondi)
+            if (frameCount > 2800 && !isFinishing) { 
+                isFinishing = true;
+                finishLineY = -80; // Fai spawnare il traguardo da sopra lo schermo
             }
 
             if (currentDifficulty === 'difficile') {
-                speedMultiplier = 1 + (frameCount / 800); 
+                speedMultiplier = 1.1 + (frameCount / 800); 
             } else {
-                speedMultiplier = 1; 
+                speedMultiplier = 1.1; // Aumentato rispetto al precedente 1 per rendere "Facile" meno noioso
             }
             
             let currentScrollSpeed = baseSpeed * speedMultiplier;
@@ -227,20 +235,22 @@
             if (moveL && car.x > 10) car.x -= car.speed;
             if (moveR && car.x < canvas.width - car.width - 10) car.x += car.speed;
 
-            let spawnRate = currentDifficulty === 'difficile' ? (0.02 * speedMultiplier) : 0.015;
-            
-            if (Math.random() < spawnRate) {
-                let type = Math.random() > 0.7 ? 'bottle' : 'rock'; 
-                let w = type === 'rock' ? 40 : 20;
-                let h = type === 'rock' ? 40 : 50;
-                
-                let randomX = Math.random() * (canvas.width - w - 20) + 10;
-                
-                obstacles.push({
-                    x: randomX,
-                    y: -50,
-                    width: w, height: h, type: type
-                });
+            // Smette di creare ostacoli se il traguardo è vicino, per lasciare la visuale libera per l'arrivo
+            if (!isFinishing) {
+                let spawnRate = currentDifficulty === 'difficile' ? (0.02 * speedMultiplier) : 0.015;
+                if (Math.random() < spawnRate) {
+                    let type = Math.random() > 0.7 ? 'bottle' : 'rock'; 
+                    let w = type === 'rock' ? 40 : 20;
+                    let h = type === 'rock' ? 40 : 50;
+                    
+                    let randomX = Math.random() * (canvas.width - w - 20) + 10;
+                    
+                    obstacles.push({
+                        x: randomX,
+                        y: -50,
+                        width: w, height: h, type: type
+                    });
+                }
             }
 
             for(let i=0; i<roadLines.length; i++){
@@ -258,6 +268,26 @@
             ctx.fillStyle = COLOR_LIGHT;
             for(let i=0; i<roadLines.length; i++){
                 ctx.fillRect(canvas.width/2 - 5, roadLines[i], 10, 80);
+            }
+
+            // Disegna Traguardo
+            if (isFinishing) {
+                finishLineY += currentScrollSpeed;
+                let squareSize = 20;
+                
+                // Disegna due file di scacchi
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < canvas.width / squareSize; col++) {
+                        ctx.fillStyle = (row + col) % 2 === 0 ? COLOR_DARKEST : COLOR_LIGHTEST;
+                        ctx.fillRect(col * squareSize, finishLineY + row * squareSize, squareSize, squareSize);
+                    }
+                }
+
+                // Vittoria quando la macchina supera la linea
+                if (finishLineY > car.y + car.height) {
+                    winGame();
+                    return;
+                }
             }
 
             for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -300,6 +330,7 @@
                 }
             }
 
+            // Disegna Macchina (va disegnata alla fine così passa "sopra" il traguardo)
             ctx.fillStyle = COLOR_DARKEST;
             ctx.fillRect(car.x, car.y, car.width, car.height); 
             ctx.fillStyle = COLOR_LIGHTEST;
