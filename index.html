@@ -6,7 +6,7 @@
     <title>Invito GP Rozzano</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        /* RESET TOTALE */
+        /* RESET GLOBALE per evitare comportamenti strani su mobile */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
@@ -15,146 +15,392 @@
             overflow: hidden; color: #0f380f; user-select: none;
         }
 
-        /* LIVELLO 1: IL GIOCO */
-        #game-container {
+        /* CANVAS DI GIOCO */
+        #game-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1; touch-action: none; 
+            z-index: 1; touch-action: none; /* Blocca lo scorrimento solo qui */
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* LIVELLO 2: I COMANDI TOUCH */
-        #touch-controls {
+        /* COMANDI TOUCH (Frecce) */
+        #touch-layer {
             position: absolute; bottom: 30px; left: 0; width: 100%;
-            display: flex; justify-content: space-between; padding: 0 30px;
-            z-index: 50; pointer-events: none; 
+            display: none; justify-content: space-between; padding: 0 30px;
+            z-index: 50; pointer-events: none; /* Ignora i tocchi fuori dai tasti */
         }
         .steer-btn {
             width: 80px; height: 80px; background: rgba(15, 56, 15, 0.4);
             border: 4px solid #0f380f; border-radius: 12px;
             display: flex; justify-content: center; align-items: center;
-            font-size: 30px; font-weight: bold; pointer-events: auto; 
+            font-size: 30px; font-weight: bold; pointer-events: auto; /* Riattiva i tocchi solo sul tasto */
+            touch-action: none;
         }
         
         #warning-msg {
             position: absolute; top: 30px; left: 0; width: 100%; text-align: center;
-            font-size: 14px; z-index: 50; animation: blink 0.5s infinite; pointer-events: none;
+            font-size: 14px; z-index: 50; display: none; animation: blink 0.5s infinite;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-        /* LIVELLO 3: SCHERMATE MENU */
+        /* SCHERMATE MENU (Z-index altissimo, coprono tutto) */
         .screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(155, 188, 15, 0.98);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; padding: 20px; z-index: 1000;
+            text-align: center; padding: 20px; z-index: 9999;
         }
-        .hidden { display: none !important; }
 
         h1 { font-size: 22px; text-shadow: 2px 2px #9bbc0f; margin-bottom: 15px; }
         p { font-size: 11px; line-height: 1.8; margin: 8px 0; }
-        .highlight { font-weight: bold; font-size: 12px; margin-top: 15px; }
+        .highlight { font-weight: bold; font-size: 12px; margin-top: 15px; color: #0f380f; }
 
-        /* BOTTONI CLASSICI */
-        button.ui-btn, a.ui-btn {
+        /* BOTTONI MENU CLASSICI */
+        button, .link-btn {
             background-color: #0f380f; color: #9bbc0f;
             border: 4px solid #306230; padding: 18px 20px;
             font-family: inherit; font-size: 14px; text-decoration: none;
             cursor: pointer; margin: 10px; display: inline-block;
-            outline: none;
+            outline: none; touch-action: manipulation;
         }
-        button.ui-btn:active, a.ui-btn:active { background-color: #306230; }
+        button:active, .link-btn:active { background-color: #306230; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
+    <div id="game-layer">
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <div id="warning-msg" class="hidden">COMANDI INVERTITI!</div>
+    <div id="warning-msg">COMANDI INVERTITI!</div>
 
-    <div id="touch-controls" class="hidden">
-        <div id="btn-left" class="steer-btn"><</div>
-        <div id="btn-right" class="steer-btn">></div>
+    <div id="touch-layer">
+        <div class="steer-btn" ontouchstart="pressLeft(true)" ontouchend="pressLeft(false)" onmousedown="pressLeft(true)" onmouseup="pressLeft(false)">&lt;</div>
+        <div class="steer-btn" ontouchstart="pressRight(true)" ontouchend="pressRight(false)" onmousedown="pressRight(true)" onmouseup="pressRight(false)">&gt;</div>
     </div>
 
     <div id="menu-screen" class="screen">
         <h1>GP ROZZANO</h1>
-        <p>Evita rocce e bombe!</p>
+        <p>Evita le rocce scure!</p>
         <p>Le bottiglie invertono i comandi!</p>
-        <p class="highlight">Livello Facile: Bombe in movimento!</p>
+        <p class="highlight">Livello Facile: Attento alle BOMBE mobili!</p>
         
         <div style="margin-top: 20px;">
-            <button class="ui-btn" id="start-easy">FACILE</button>
-            <button class="ui-btn" id="start-hard">DIFFICILE</button>
+            <button onclick="startGame('facile')">FACILE</button>
+            <button onclick="startGame('difficile')">DIFFICILE</button>
         </div>
     </div>
 
-    <div id="gameover-screen" class="screen hidden">
+    <div id="gameover-screen" class="screen" style="display: none;">
         <h1>CRASH!</h1>
         <p>Macchina distrutta.</p>
         <div style="margin-top: 20px;">
-            <button class="ui-btn" id="go-menu">MENU</button>
-            <button class="ui-btn" id="retry-btn">RIPROVA</button>
+            <button onclick="showMenu()">MENU</button>
+            <button onclick="retryGame()">RIPROVA</button>
         </div>
     </div>
 
-    <div id="win-screen" class="screen hidden">
+    <div id="win-screen" class="screen" style="display: none;">
         <h1>COMPLIMENTI!</h1>
         <p style="margin: 20px 0;">Ti sei qualificato per il GP che si terrà<br><br><b>Sabato 22 Maggio ore 16.45.</b></p>
-        <a href="https://maps.app.goo.gl/87Es3qq8PkCTB2aW7" target="_blank" class="ui-btn">dove?</a>
+        <a href="https://maps.app.goo.gl/87Es3qq8PkCTB2aW7" target="_blank" class="link-btn">dove?</a>
     </div>
 
     <script>
+        // CONFIGURAZIONE CANVAS E VARIABILI
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        const menuScreen = document.getElementById('menu-screen');
-        const gameoverScreen = document.getElementById('gameover-screen');
-        const winScreen = document.getElementById('win-screen');
-        const touchControls = document.getElementById('touch-controls');
-        const warningMsg = document.getElementById('warning-msg');
+        // Elementi UI
+        const elMenu = document.getElementById('menu-screen');
+        const elGameOver = document.getElementById('gameover-screen');
+        const elWin = document.getElementById('win-screen');
+        const elTouch = document.getElementById('touch-layer');
+        const elWarning = document.getElementById('warning-msg');
 
-        document.getElementById('start-easy').addEventListener('click', function() { bootGame('facile'); });
-        document.getElementById('start-hard').addEventListener('click', function() { bootGame('difficile'); });
-        document.getElementById('go-menu').addEventListener('click', function() { showScreen(menuScreen); });
-        document.getElementById('retry-btn').addEventListener('click', function() { bootGame(currentDiff); });
+        // Ridimensionamento
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
 
-        const btnLeft = document.getElementById('btn-left');
-        const btnRight = document.getElementById('btn-right');
-        
-        btnLeft.addEventListener('touchstart', function(e) { e.preventDefault(); input.left = true; }, {passive: false});
-        btnLeft.addEventListener('touchend', function(e) { e.preventDefault(); input.left = false; }, {passive: false});
-        btnRight.addEventListener('touchstart', function(e) { e.preventDefault(); input.right = true; }, {passive: false});
-        btnRight.addEventListener('touchend', function(e) { e.preventDefault(); input.right = false; }, {passive: false});
-
-        window.addEventListener('keydown', function(e) {
-            if(e.key === 'ArrowLeft') input.left = true;
-            if(e.key === 'ArrowRight') input.right = true;
-        });
-        window.addEventListener('keyup', function(e) {
-            if(e.key === 'ArrowLeft') input.left = false;
-            if(e.key === 'ArrowRight') input.right = false;
-        });
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
+        // Colori Gameboy
         const C_DARKEST = '#0f380f';
         const C_DARK = '#306230';
         const C_LIGHT = '#8bac0f';
         const C_LIGHTEST = '#9bbc0f';
 
-        let gameRequest;
-        let isRunning = false;
-        let currentDiff = 'facile';
+        // Stato Gioco
+        let gameState = 'menu'; // menu, playing, exploding, gameover, win
+        let difficulty = 'facile';
         let frame = 0;
-        let baseSpeed = 5;
+        let baseSpeed = 5.5;
+        let speedMult = 1;
+        
         let inverted = false;
         let invertTimer = 0;
+        
         let isFinishing = false;
-        let finishY = -10
+        let finishY = -100;
+        
+        let expRadius = 0;
+        let expX = 0, expY = 0;
+
+        let obstacles = [];
+        let roadLines = [];
+        
+        // Auto e controlli
+        const car = { w: 40, h: 60, x: 0, y: 0, speed: 7 };
+        let inputL = false;
+        let inputR = false;
+
+        // FUNZIONI DI INPUT DIRETTI (Garantiti da HTML)
+        function pressLeft(val) { inputL = val; }
+        function pressRight(val) { inputR = val; }
+        
+        window.addEventListener('keydown', e => { if(e.key==='ArrowLeft') inputL=true; if(e.key==='ArrowRight') inputR=true; });
+        window.addEventListener('keyup', e => { if(e.key==='ArrowLeft') inputL=false; if(e.key==='ArrowRight') inputR=false; });
+
+        // GESTIONE SCHERMATE
+        function hideAllScreens() {
+            elMenu.style.display = 'none';
+            elGameOver.style.display = 'none';
+            elWin.style.display = 'none';
+            elTouch.style.display = 'none';
+            elWarning.style.display = 'none';
+        }
+
+        function showMenu() {
+            hideAllScreens();
+            elMenu.style.display = 'flex';
+            gameState = 'menu';
+        }
+
+        function retryGame() {
+            startGame(difficulty);
+        }
+
+        function startGame(diff) {
+            difficulty = diff;
+            hideAllScreens();
+            elTouch.style.display = 'flex';
+            
+            // Reset variabili di gioco
+            car.x = canvas.width / 2 - car.w / 2;
+            car.y = canvas.height - 140;
+            inputL = false; inputR = false;
+            
+            obstacles = [];
+            roadLines = [0, canvas.height/3, (canvas.height/3)*2];
+            frame = 0;
+            inverted = false;
+            invertTimer = 0;
+            isFinishing = false;
+            finishY = -100;
+            expRadius = 0;
+            
+            gameState = 'playing';
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerGameOver() {
+            gameState = 'gameover';
+            hideAllScreens();
+            elGameOver.style.display = 'flex';
+        }
+
+        function triggerWin() {
+            gameState = 'win';
+            hideAllScreens();
+            elWin.style.display = 'flex';
+        }
+
+        function triggerExplosion(x, y) {
+            gameState = 'exploding';
+            expX = x;
+            expY = y;
+            expRadius = 1;
+        }
+
+        // MOTORE DI GIOCO PRINCIPALE
+        function gameLoop() {
+            if (gameState === 'menu' || gameState === 'gameover' || gameState === 'win') return;
+
+            // FASE DI ESPLOSIONE (Animazione Bomba)
+            if (gameState === 'exploding') {
+                drawBackground();
+                
+                // Disegna l'esplosione retrò in espansione
+                expRadius += 4;
+                ctx.fillStyle = C_DARKEST;
+                ctx.beginPath(); ctx.arc(expX, expY, expRadius, 0, Math.PI * 2); ctx.fill();
+                
+                if (expRadius > 20) {
+                    ctx.fillStyle = C_LIGHT;
+                    ctx.beginPath(); ctx.arc(expX, expY, expRadius * 0.7, 0, Math.PI * 2); ctx.fill();
+                }
+                if (expRadius > 40) {
+                    ctx.fillStyle = C_LIGHTEST;
+                    ctx.beginPath(); ctx.arc(expX, expY, expRadius * 0.4, 0, Math.PI * 2); ctx.fill();
+                }
+
+                // Fine esplosione
+                if (expRadius > 150) {
+                    triggerGameOver();
+                    return;
+                }
+                
+                requestAnimationFrame(gameLoop);
+                return; // Salta il resto degli aggiornamenti
+            }
+
+            // FASE DI GIOCO NORMALE
+            frame++;
+
+            // Traguardo dopo circa 45 secondi
+            if (frame > 2800 && !isFinishing) {
+                isFinishing = true;
+                finishY = -80;
+            }
+
+            // Calcolo Velocità
+            speedMult = difficulty === 'difficile' ? 1.1 + (frame / 800) : 1.2;
+            let currentSpeed = baseSpeed * speedMult;
+
+            // Gestione Inversione Comandi
+            if (invertTimer > 0) {
+                invertTimer--;
+                if (invertTimer <= 0) {
+                    inverted = false;
+                    elWarning.style.display = 'none';
+                }
+            }
+
+            // Movimento Auto
+            let goL = inverted ? inputR : inputL;
+            let goR = inverted ? inputL : inputR;
+
+            if (goL && car.x > 10) car.x -= car.speed;
+            if (goR && car.x < canvas.width - car.w - 10) car.x += car.speed;
+
+            // Spawn Ostacoli
+            if (!isFinishing) {
+                let spawnChance = difficulty === 'difficile' ? 0.025 * speedMult : 0.02 * speedMult;
+                
+                if (Math.random() < spawnChance) {
+                    let type, w, h, dx = 0;
+                    
+                    if (difficulty === 'facile') {
+                        let r = Math.random();
+                        if (r > 0.75) { 
+                            type = 'bomb'; w = 30; h = 30; 
+                            // Movimento laterale casuale per la bomba
+                            dx = (Math.random() < 0.5 ? 2 : -2) * (speedMult * 0.8);
+                        } 
+                        else if (r > 0.45) { type = 'bottle'; w = 20; h = 50; } 
+                        else { type = 'rock'; w = 40; h = 40; }
+                    } else {
+                        // Modalità Difficile: niente bombe
+                        type = Math.random() > 0.65 ? 'bottle' : 'rock'; 
+                        w = type === 'rock' ? 40 : 20;
+                        h = type === 'rock' ? 40 : 50;
+                    }
+                    
+                    let rx = Math.random() * (canvas.width - w - 20) + 10;
+                    obstacles.push({ x: rx, y: -60, w: w, h: h, type: type, dx: dx });
+                }
+            }
+
+            // Movimento Linee Strada
+            for(let i=0; i<roadLines.length; i++){
+                roadLines[i] += currentSpeed;
+                if(roadLines[i] > canvas.height) roadLines[i] = -100;
+            }
+
+            // --- DISEGNO ---
+            drawBackground();
+
+            // Disegna Traguardo
+            if (isFinishing) {
+                finishY += currentSpeed;
+                let sq = 20;
+                for (let r = 0; r < 2; r++) {
+                    for (let c = 0; c < canvas.width / sq; c++) {
+                        ctx.fillStyle = (r + c) % 2 === 0 ? C_DARKEST : C_LIGHTEST;
+                        ctx.fillRect(c * sq, finishY + r * sq, sq, sq);
+                    }
+                }
+                if (finishY > car.y + car.h) {
+                    triggerWin();
+                    return;
+                }
+            }
+
+            // Aggiorna e Disegna Ostacoli
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.y += currentSpeed;
+                
+                // Movimento Bomba (Rimbalzo sui bordi)
+                if (obs.type === 'bomb' && obs.dx !== 0) {
+                    obs.x += obs.dx;
+                    if (obs.x <= 10) { obs.x = 10; obs.dx *= -1; }
+                    if (obs.x + obs.w >= canvas.width - 10) { obs.x = canvas.width - obs.w - 10; obs.dx *= -1; }
+                }
+
+                // Rendering Ostacoli
+                if (obs.type === 'rock') {
+                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = C_DARK; ctx.fillRect(obs.x+5, obs.y+5, obs.w-10, obs.h-10);
+                } else if (obs.type === 'bottle') {
+                    ctx.fillStyle = C_LIGHT; ctx.fillRect(obs.x, obs.y+10, obs.w, obs.h-10); ctx.fillRect(obs.x+5, obs.y, obs.w-10, 10); 
+                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x, obs.y+20, obs.w, 15);
+                } else if (obs.type === 'bomb') {
+                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x+4, obs.y+8, obs.w-8, obs.h-8); ctx.fillRect(obs.x, obs.y+12, obs.w, obs.h-16);
+                    ctx.fillRect(obs.x+obs.w/2-2, obs.y, 4, 8);
+                    // Scintilla
+                    if (Math.floor(frame / 8) % 2 === 0) { ctx.fillStyle = C_LIGHTEST; ctx.fillRect(obs.x+obs.w/2-4, obs.y-4, 8, 8); }
+                }
+
+                // Controllo Collisioni (Hitbox tollerante di 5px)
+                let margin = 5;
+                if (car.x < obs.x + obs.w - margin && car.x + car.w > obs.x + margin &&
+                    car.y < obs.y + obs.h - margin && car.y + car.h > obs.y + margin) {
+                    
+                    if (obs.type === 'bomb') {
+                        triggerExplosion(car.x + car.w/2, car.y + car.h/2);
+                        return;
+                    } else if (obs.type === 'rock') {
+                        triggerGameOver();
+                        return;
+                    } else if (obs.type === 'bottle') {
+                        inverted = true; invertTimer = 240; 
+                        elWarning.style.display = 'block';
+                        obstacles.splice(i, 1); 
+                        continue;
+                    }
+                }
+
+                if (obs.y > canvas.height) obstacles.splice(i, 1);
+            }
+
+            // Disegna Auto
+            ctx.fillStyle = C_DARKEST; ctx.fillRect(car.x, car.y, car.w, car.h); 
+            ctx.fillStyle = C_LIGHTEST; ctx.fillRect(car.x+5, car.y+15, car.w-10, 15); ctx.fillRect(car.x+5, car.y+45, car.w-10, 10); 
+            ctx.fillStyle = C_DARK;
+            ctx.fillRect(car.x-4, car.y+5, 4, 15); ctx.fillRect(car.x+car.w, car.y+5, 4, 15);
+            ctx.fillRect(car.x-4, car.y+40, 4, 15); ctx.fillRect(car.x+car.w, car.y+40, 4, 15);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Funzione di supporto per pulire il codice
+        function drawBackground() {
+            ctx.fillStyle = C_LIGHTEST; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = C_DARKEST; ctx.fillRect(0, 0, 10, canvas.height); ctx.fillRect(canvas.width - 10, 0, 10, canvas.height);
+            ctx.fillStyle = C_LIGHT;
+            for(let i=0; i<roadLines.length; i++) {
+                ctx.fillRect(canvas.width/2 - 5, roadLines[i], 10, 80);
+            }
+        }
+    </script>
+</body>
+</html>
