@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TecnoGP</title>
+    <title>Invito GP Rozzano</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         body, html {
@@ -68,10 +68,11 @@
     </div>
 
     <div id="startScreen" class="ui-layer">
-        <h1>TECNOGP</h1>
+        <h1>GP ROZZANO</h1>
         <p>Usa le frecce per guidare.</p>
         <p>Evita le rocce scure!</p>
         <p>Le bottiglie invertono i comandi!</p>
+        <p style="margin-top:10px; font-weight:bold;">Livello Facile: Attento alle BOMBE!</p>
         
         <div class="btn-container">
             <p style="margin-bottom: 15px; font-size: 12px;">Scegli il livello:</p>
@@ -82,7 +83,7 @@
 
     <div id="gameOverScreen" class="ui-layer hidden">
         <h1>CRASH!</h1>
-        <p>Hai colpito una roccia.</p>
+        <p>Hai distrutto la macchina.</p>
         <div class="btn-container">
             <button class="btn" onclick="showMenu()">MENU</button>
             <button class="btn" onclick="restartGame()">RIPROVA</button>
@@ -91,7 +92,7 @@
 
     <div id="winScreen" class="ui-layer hidden">
         <h1>COMPLIMENTI!</h1>
-        <p style="font-size: 12px; margin: 20px 0; line-height: 1.8;">Ti sei qualificato per il GP che si terrà Sabato 25 Aprile ore 16.45.</p>
+        <p style="font-size: 12px; margin: 20px 0; line-height: 1.8;">Ti sei qualificato per il GP che si terrà Sabato 22 Maggio ore 16.45.</p>
         <a href="https://maps.app.goo.gl/87Es3qq8PkCTB2aW7" target="_blank" class="btn">dove?</a>
     </div>
 
@@ -116,7 +117,7 @@
         // Variabili di Gioco
         let isPlaying = false;
         let speedMultiplier = 1;
-        let baseSpeed = 5; // Aumentata velocità di base
+        let baseSpeed = 5; 
         let frameCount = 0;
         let obstacles = [];
         let roadLines = [];
@@ -210,13 +211,13 @@
             // Inizia la fase di traguardo dopo 2800 frame (circa 46 secondi)
             if (frameCount > 2800 && !isFinishing) { 
                 isFinishing = true;
-                finishLineY = -80; // Fai spawnare il traguardo da sopra lo schermo
+                finishLineY = -80;
             }
 
             if (currentDifficulty === 'difficile') {
                 speedMultiplier = 1.1 + (frameCount / 800); 
             } else {
-                speedMultiplier = 1.1; // Aumentato rispetto al precedente 1 per rendere "Facile" meno noioso
+                speedMultiplier = 1.1; 
             }
             
             let currentScrollSpeed = baseSpeed * speedMultiplier;
@@ -235,13 +236,29 @@
             if (moveL && car.x > 10) car.x -= car.speed;
             if (moveR && car.x < canvas.width - car.width - 10) car.x += car.speed;
 
-            // Smette di creare ostacoli se il traguardo è vicino, per lasciare la visuale libera per l'arrivo
+            // Logica di Creazione Ostacoli
             if (!isFinishing) {
                 let spawnRate = currentDifficulty === 'difficile' ? (0.02 * speedMultiplier) : 0.015;
                 if (Math.random() < spawnRate) {
-                    let type = Math.random() > 0.7 ? 'bottle' : 'rock'; 
-                    let w = type === 'rock' ? 40 : 20;
-                    let h = type === 'rock' ? 40 : 50;
+                    
+                    let type, w, h;
+                    
+                    if (currentDifficulty === 'facile') {
+                        // Modalità Facile: Aggiunte le BOMBE (20% rocce, 30% bottiglie, 20% bombe)
+                        let rand = Math.random();
+                        if (rand > 0.8) {
+                            type = 'bomb'; w = 30; h = 30;
+                        } else if (rand > 0.5) {
+                            type = 'bottle'; w = 20; h = 50;
+                        } else {
+                            type = 'rock'; w = 40; h = 40;
+                        }
+                    } else {
+                        // Modalità Difficile: Niente bombe, solo rocce e bottiglie
+                        type = Math.random() > 0.7 ? 'bottle' : 'rock'; 
+                        w = type === 'rock' ? 40 : 20;
+                        h = type === 'rock' ? 40 : 50;
+                    }
                     
                     let randomX = Math.random() * (canvas.width - w - 20) + 10;
                     
@@ -258,6 +275,7 @@
                 if(roadLines[i] > canvas.height) roadLines[i] = -100;
             }
 
+            // Sfondo Strada
             ctx.fillStyle = COLOR_LIGHTEST;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -265,85 +283,4 @@
             ctx.fillRect(0, 0, 10, canvas.height);
             ctx.fillRect(canvas.width - 10, 0, 10, canvas.height);
 
-            ctx.fillStyle = COLOR_LIGHT;
-            for(let i=0; i<roadLines.length; i++){
-                ctx.fillRect(canvas.width/2 - 5, roadLines[i], 10, 80);
-            }
-
-            // Disegna Traguardo
-            if (isFinishing) {
-                finishLineY += currentScrollSpeed;
-                let squareSize = 20;
-                
-                // Disegna due file di scacchi
-                for (let row = 0; row < 2; row++) {
-                    for (let col = 0; col < canvas.width / squareSize; col++) {
-                        ctx.fillStyle = (row + col) % 2 === 0 ? COLOR_DARKEST : COLOR_LIGHTEST;
-                        ctx.fillRect(col * squareSize, finishLineY + row * squareSize, squareSize, squareSize);
-                    }
-                }
-
-                // Vittoria quando la macchina supera la linea
-                if (finishLineY > car.y + car.height) {
-                    winGame();
-                    return;
-                }
-            }
-
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.y += currentScrollSpeed;
-
-                if (obs.type === 'rock') {
-                    ctx.fillStyle = COLOR_DARKEST;
-                    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-                    ctx.fillStyle = COLOR_DARK;
-                    ctx.fillRect(obs.x+5, obs.y+5, obs.width-10, obs.height-10);
-                } else {
-                    ctx.fillStyle = COLOR_LIGHT; 
-                    ctx.fillRect(obs.x, obs.y+10, obs.width, obs.height-10);
-                    ctx.fillRect(obs.x+5, obs.y, obs.width-10, 10); 
-                    ctx.fillStyle = COLOR_DARKEST; 
-                    ctx.fillRect(obs.x, obs.y+20, obs.width, 15);
-                }
-
-                let hitboxMargin = 5;
-                if (car.x < obs.x + obs.width - hitboxMargin && 
-                    car.x + car.width > obs.x + hitboxMargin &&
-                    car.y < obs.y + obs.height - hitboxMargin && 
-                    car.y + car.height > obs.y + hitboxMargin) {
-                    
-                    if (obs.type === 'rock') {
-                        gameOver();
-                        return;
-                    } else if (obs.type === 'bottle') {
-                        invertedControls = true;
-                        invertTimer = 240; 
-                        warning.classList.remove('hidden');
-                        obstacles.splice(i, 1); 
-                        continue;
-                    }
-                }
-
-                if (obs.y > canvas.height) {
-                    obstacles.splice(i, 1);
-                }
-            }
-
-            // Disegna Macchina (va disegnata alla fine così passa "sopra" il traguardo)
-            ctx.fillStyle = COLOR_DARKEST;
-            ctx.fillRect(car.x, car.y, car.width, car.height); 
-            ctx.fillStyle = COLOR_LIGHTEST;
-            ctx.fillRect(car.x + 5, car.y + 15, car.width - 10, 15); 
-            ctx.fillRect(car.x + 5, car.y + 45, car.width - 10, 10); 
-            ctx.fillStyle = COLOR_DARK;
-            ctx.fillRect(car.x - 4, car.y + 5, 4, 15);
-            ctx.fillRect(car.x + car.width, car.y + 5, 4, 15);
-            ctx.fillRect(car.x - 4, car.y + 40, 4, 15);
-            ctx.fillRect(car.x + car.width, car.y + 40, 4, 15);
-
-            requestAnimationFrame(update);
-        }
-    </script>
-</body>
-</html>
+            ctx.fillStyle
