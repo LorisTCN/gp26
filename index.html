@@ -74,8 +74,8 @@
     <div id="warning-msg">COMANDI INVERTITI!</div>
 
     <div id="touch-layer">
-        <div class="steer-btn" ontouchstart="pressLeft(true)" ontouchend="pressLeft(false)" onmousedown="pressLeft(true)" onmouseup="pressLeft(false)">&lt;</div>
-        <div class="steer-btn" ontouchstart="pressRight(true)" ontouchend="pressRight(false)" onmousedown="pressRight(true)" onmouseup="pressRight(false)">&gt;</div>
+        <div class="steer-btn" ontouchstart="pressLeft(true)" ontouchend="pressLeft(false)" onmousedown="pressLeft(true)" onmouseup="pressLeft(false)"><</div>
+        <div class="steer-btn" ontouchstart="pressRight(true)" ontouchend="pressRight(false)" onmousedown="pressRight(true)" onmouseup="pressRight(false)">></div>
     </div>
 
     <div id="menu-screen" class="screen">
@@ -152,7 +152,7 @@
         let inputL = false;
         let inputR = false;
 
-        // FUNZIONI DI INPUT DIRETTI (Garantiti da HTML)
+        // FUNZIONI DI INPUT DIRETTI
         function pressLeft(val) { inputL = val; }
         function pressRight(val) { inputR = val; }
         
@@ -228,7 +228,6 @@
             if (gameState === 'exploding') {
                 drawBackground();
                 
-                // Disegna l'esplosione retrò in espansione
                 expRadius += 4;
                 ctx.fillStyle = C_DARKEST;
                 ctx.beginPath(); ctx.arc(expX, expY, expRadius, 0, Math.PI * 2); ctx.fill();
@@ -242,14 +241,13 @@
                     ctx.beginPath(); ctx.arc(expX, expY, expRadius * 0.4, 0, Math.PI * 2); ctx.fill();
                 }
 
-                // Fine esplosione
                 if (expRadius > 150) {
                     triggerGameOver();
                     return;
                 }
                 
                 requestAnimationFrame(gameLoop);
-                return; // Salta il resto degli aggiornamenti
+                return; 
             }
 
             // FASE DI GIOCO NORMALE
@@ -281,24 +279,26 @@
             if (goL && car.x > 10) car.x -= car.speed;
             if (goR && car.x < canvas.width - car.w - 10) car.x += car.speed;
 
-            // Spawn Ostacoli
+            // Spawn Ostacoli - MODIFICATO PER AUMENTARE DIFFICOLTA'
             if (!isFinishing) {
-                let spawnChance = difficulty === 'difficile' ? 0.025 * speedMult : 0.02 * speedMult;
+                // Aumentata la probabilità generale per il livello facile
+                let spawnChance = difficulty === 'difficile' ? 0.025 * speedMult : 0.035 * speedMult;
                 
                 if (Math.random() < spawnChance) {
                     let type, w, h, dx = 0;
                     
                     if (difficulty === 'facile') {
                         let r = Math.random();
-                        if (r > 0.75) { 
+                        // 40% di probabilità che sia una bomba (era 25%)
+                        if (r > 0.60) { 
                             type = 'bomb'; w = 30; h = 30; 
-                            // Movimento laterale casuale per la bomba
-                            dx = (Math.random() < 0.5 ? 2 : -2) * (speedMult * 0.8);
+                            // Movimento laterale casuale leggermente più veloce
+                            dx = (Math.random() < 0.5 ? 2.5 : -2.5) * (speedMult * 0.8);
                         } 
-                        else if (r > 0.45) { type = 'bottle'; w = 20; h = 50; } 
+                        else if (r > 0.35) { type = 'bottle'; w = 20; h = 50; } 
                         else { type = 'rock'; w = 40; h = 40; }
                     } else {
-                        // Modalità Difficile: niente bombe
+                        // Modalità Difficile: niente bombe, solo rocce (65%) e bottiglie (35%)
                         type = Math.random() > 0.65 ? 'bottle' : 'rock'; 
                         w = type === 'rock' ? 40 : 20;
                         h = type === 'rock' ? 40 : 50;
@@ -360,7 +360,7 @@
                     if (Math.floor(frame / 8) % 2 === 0) { ctx.fillStyle = C_LIGHTEST; ctx.fillRect(obs.x+obs.w/2-4, obs.y-4, 8, 8); }
                 }
 
-                // Controllo Collisioni (Hitbox tollerante di 5px)
+                // Controllo Collisioni
                 let margin = 5;
                 if (car.x < obs.x + obs.w - margin && car.x + car.w > obs.x + margin &&
                     car.y < obs.y + obs.h - margin && car.y + car.h > obs.y + margin) {
@@ -392,7 +392,6 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Funzione di supporto per pulire il codice
         function drawBackground() {
             ctx.fillStyle = C_LIGHTEST; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = C_DARKEST; ctx.fillRect(0, 0, 10, canvas.height); ctx.fillRect(canvas.width - 10, 0, 10, canvas.height);
