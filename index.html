@@ -15,24 +15,24 @@
             overflow: hidden; color: #0f380f; user-select: none;
         }
 
-        /* LIVELLO 1: IL GIOCO (Dietro) */
+        /* LIVELLO 1: IL GIOCO */
         #game-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1; touch-action: none; /* Blocca lo scroll solo qui */
+            z-index: 1; touch-action: none; 
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* LIVELLO 2: I COMANDI TOUCH (Sopra il gioco, ma dietro i menu) */
+        /* LIVELLO 2: I COMANDI TOUCH */
         #touch-controls {
             position: absolute; bottom: 30px; left: 0; width: 100%;
             display: flex; justify-content: space-between; padding: 0 30px;
-            z-index: 50; pointer-events: none; /* Permette di cliccare attraverso lo spazio vuoto */
+            z-index: 50; pointer-events: none; 
         }
         .steer-btn {
             width: 80px; height: 80px; background: rgba(15, 56, 15, 0.4);
             border: 4px solid #0f380f; border-radius: 12px;
             display: flex; justify-content: center; align-items: center;
-            font-size: 30px; font-weight: bold; pointer-events: auto; /* Rende cliccabili solo i tasti */
+            font-size: 30px; font-weight: bold; pointer-events: auto; 
         }
         
         #warning-msg {
@@ -41,7 +41,7 @@
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-        /* LIVELLO 3: SCHERMATE MENU (Sempre in primissimo piano) */
+        /* LIVELLO 3: SCHERMATE MENU */
         .screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(155, 188, 15, 0.98);
@@ -54,7 +54,7 @@
         p { font-size: 11px; line-height: 1.8; margin: 8px 0; }
         .highlight { font-weight: bold; font-size: 12px; margin-top: 15px; }
 
-        /* BOTTONI CLASSICI A PROVA DI ERRORE */
+        /* BOTTONI CLASSICI */
         button.ui-btn, a.ui-btn {
             background-color: #0f380f; color: #9bbc0f;
             border: 4px solid #306230; padding: 18px 20px;
@@ -80,9 +80,9 @@
 
     <div id="menu-screen" class="screen">
         <h1>GP ROZZANO</h1>
-        <p>Evita le rocce scure!</p>
+        <p>Evita rocce e bombe!</p>
         <p>Le bottiglie invertono i comandi!</p>
-        <p class="highlight">Livello Facile: Attento alle BOMBE!</p>
+        <p class="highlight">Livello Facile: Bombe in movimento!</p>
         
         <div style="margin-top: 20px;">
             <button class="ui-btn" id="start-easy">FACILE</button>
@@ -106,7 +106,6 @@
     </div>
 
     <script>
-        // RECUPERO ELEMENTI DOM
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
@@ -116,13 +115,11 @@
         const touchControls = document.getElementById('touch-controls');
         const warningMsg = document.getElementById('warning-msg');
 
-        // GESTIONE BOTTONI MENU (Usa EventListener standard e puliti)
         document.getElementById('start-easy').addEventListener('click', function() { bootGame('facile'); });
         document.getElementById('start-hard').addEventListener('click', function() { bootGame('difficile'); });
         document.getElementById('go-menu').addEventListener('click', function() { showScreen(menuScreen); });
         document.getElementById('retry-btn').addEventListener('click', function() { bootGame(currentDiff); });
 
-        // GESTIONE COMANDI AUTO
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
         
@@ -140,7 +137,6 @@
             if(e.key === 'ArrowRight') input.right = false;
         });
 
-        // RESIZE CANVAS
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -148,13 +144,11 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // COSTANTI E COLORI
         const C_DARKEST = '#0f380f';
         const C_DARK = '#306230';
         const C_LIGHT = '#8bac0f';
         const C_LIGHTEST = '#9bbc0f';
 
-        // STATO DI GIOCO
         let gameRequest;
         let isRunning = false;
         let currentDiff = 'facile';
@@ -163,184 +157,4 @@
         let inverted = false;
         let invertTimer = 0;
         let isFinishing = false;
-        let finishY = -100;
-        
-        const input = { left: false, right: false };
-        const car = { w: 40, h: 60, x: 0, y: 0, speed: 7 };
-        let obstacles = [];
-        let roadLines = [];
-
-        // FUNZIONI UI
-        function showScreen(screenToShow) {
-            menuScreen.classList.add('hidden');
-            gameoverScreen.classList.add('hidden');
-            winScreen.classList.add('hidden');
-            touchControls.classList.add('hidden');
-            warningMsg.classList.add('hidden');
-            
-            if (screenToShow) screenToShow.classList.remove('hidden');
-        }
-
-        // AVVIO GIOCO
-        function bootGame(difficulty) {
-            currentDiff = difficulty;
-            showScreen(null); // Nascondi tutti i menu
-            touchControls.classList.remove('hidden');
-            
-            car.x = canvas.width / 2 - car.w / 2;
-            car.y = canvas.height - 140;
-            input.left = false; input.right = false;
-            
-            obstacles = [];
-            roadLines = [0, canvas.height/3, (canvas.height/3)*2];
-            frame = 0;
-            inverted = false;
-            invertTimer = 0;
-            isFinishing = false;
-            finishY = -100;
-            
-            isRunning = true;
-            if (gameRequest) cancelAnimationFrame(gameRequest);
-            gameLoop();
-        }
-
-        function triggerGameOver() {
-            isRunning = false;
-            showScreen(gameoverScreen);
-        }
-
-        function triggerWin() {
-            isRunning = false;
-            showScreen(winScreen);
-        }
-
-        // CICLO PRINCIPALE
-        function gameLoop() {
-            if (!isRunning) return;
-            frame++;
-
-            // Gestione Velocità
-            let speedMult = currentDiff === 'difficile' ? 1.1 + (frame / 800) : 1.2;
-            let currentSpeed = baseSpeed * speedMult;
-
-            // Arrivo Traguardo (circa 45-50 sec)
-            if (frame > 2800 && !isFinishing) {
-                isFinishing = true;
-                finishY = -80;
-            }
-
-            // Inversione Comandi
-            if (invertTimer > 0) {
-                invertTimer--;
-                if (invertTimer <= 0) {
-                    inverted = false;
-                    warningMsg.classList.add('hidden');
-                }
-            }
-
-            // Movimento Auto
-            let goLeft = inverted ? input.right : input.left;
-            let goRight = inverted ? input.left : input.right;
-
-            if (goLeft && car.x > 10) car.x -= car.speed;
-            if (goRight && car.x < canvas.width - car.w - 10) car.x += car.speed;
-
-            // Spawn Ostacoli
-            if (!isFinishing) {
-                let spawnChance = currentDiff === 'difficile' ? 0.022 * speedMult : 0.015;
-                if (Math.random() < spawnChance) {
-                    let type, w, h;
-                    
-                    if (currentDiff === 'facile') {
-                        let r = Math.random();
-                        if (r > 0.8) { type = 'bomb'; w = 30; h = 30; } 
-                        else if (r > 0.5) { type = 'bottle'; w = 20; h = 50; } 
-                        else { type = 'rock'; w = 40; h = 40; }
-                    } else {
-                        type = Math.random() > 0.7 ? 'bottle' : 'rock'; 
-                        w = type === 'rock' ? 40 : 20;
-                        h = type === 'rock' ? 40 : 50;
-                    }
-                    
-                    let rx = Math.random() * (canvas.width - w - 20) + 10;
-                    obstacles.push({ x: rx, y: -60, w: w, h: h, type: type });
-                }
-            }
-
-            // Movimento Strada
-            for(let i=0; i<roadLines.length; i++){
-                roadLines[i] += currentSpeed;
-                if(roadLines[i] > canvas.height) roadLines[i] = -100;
-            }
-
-            // --- DISEGNO SU CANVAS ---
-            ctx.fillStyle = C_LIGHTEST; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = C_DARKEST; ctx.fillRect(0, 0, 10, canvas.height); ctx.fillRect(canvas.width - 10, 0, 10, canvas.height);
-            
-            ctx.fillStyle = C_LIGHT;
-            for(let i=0; i<roadLines.length; i++) {
-                ctx.fillRect(canvas.width/2 - 5, roadLines[i], 10, 80);
-            }
-
-            // Disegno Traguardo
-            if (isFinishing) {
-                finishY += currentSpeed;
-                let sq = 20;
-                for (let r = 0; r < 2; r++) {
-                    for (let c = 0; c < canvas.width / sq; c++) {
-                        ctx.fillStyle = (r + c) % 2 === 0 ? C_DARKEST : C_LIGHTEST;
-                        ctx.fillRect(c * sq, finishY + r * sq, sq, sq);
-                    }
-                }
-                if (finishY > car.y + car.h) {
-                    triggerWin();
-                    return;
-                }
-            }
-
-            // Ostacoli e Collisioni
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.y += currentSpeed;
-
-                if (obs.type === 'rock') {
-                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-                    ctx.fillStyle = C_DARK; ctx.fillRect(obs.x+5, obs.y+5, obs.w-10, obs.h-10);
-                } else if (obs.type === 'bottle') {
-                    ctx.fillStyle = C_LIGHT; ctx.fillRect(obs.x, obs.y+10, obs.w, obs.h-10); ctx.fillRect(obs.x+5, obs.y, obs.w-10, 10); 
-                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x, obs.y+20, obs.w, 15);
-                } else if (obs.type === 'bomb') {
-                    ctx.fillStyle = C_DARKEST; ctx.fillRect(obs.x+4, obs.y+8, obs.w-8, obs.h-8); ctx.fillRect(obs.x, obs.y+12, obs.w, obs.h-16);
-                    ctx.fillRect(obs.x+obs.w/2-2, obs.y, 4, 8);
-                    if (Math.floor(frame / 10) % 2 === 0) { ctx.fillStyle = C_LIGHTEST; ctx.fillRect(obs.x+obs.w/2-4, obs.y-4, 8, 8); }
-                }
-
-                // Hitbox Collisione
-                let margin = 5;
-                if (car.x < obs.x + obs.w - margin && car.x + car.w > obs.x + margin &&
-                    car.y < obs.y + obs.h - margin && car.y + car.h > obs.y + margin) {
-                    
-                    if (obs.type === 'rock' || obs.type === 'bomb') {
-                        triggerGameOver(); return;
-                    } else if (obs.type === 'bottle') {
-                        inverted = true; invertTimer = 240; 
-                        warningMsg.classList.remove('hidden');
-                        obstacles.splice(i, 1); continue;
-                    }
-                }
-
-                if (obs.y > canvas.height) obstacles.splice(i, 1);
-            }
-
-            // Disegno Auto
-            ctx.fillStyle = C_DARKEST; ctx.fillRect(car.x, car.y, car.w, car.h); 
-            ctx.fillStyle = C_LIGHTEST; ctx.fillRect(car.x+5, car.y+15, car.w-10, 15); ctx.fillRect(car.x+5, car.y+45, car.w-10, 10); 
-            ctx.fillStyle = C_DARK;
-            ctx.fillRect(car.x-4, car.y+5, 4, 15); ctx.fillRect(car.x+car.w, car.y+5, 4, 15);
-            ctx.fillRect(car.x-4, car.y+40, 4, 15); ctx.fillRect(car.x+car.w, car.y+40, 4, 15);
-
-            gameRequest = requestAnimationFrame(gameLoop);
-        }
-    </script>
-</body>
-</html>
+        let finishY = -10
